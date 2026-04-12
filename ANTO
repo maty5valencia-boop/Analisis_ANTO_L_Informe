@@ -1,0 +1,85 @@
+install.packages("tidyquant")
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("rmarkdown")
+install.packages("PerformanceAnalytics")install.packages("tinytex")
+install.packages("PerformanceAnalytics")install.packages("tinytex")
+install.packages("tinytex")
+tinytex::install_tinytex()
+# Cargar los datos guardados para el reporte
+resumen_stats_r <- readRDS("resumen_stats_r.rds")
+# Definir el nombre del archivo Rmd y el PDF de salida
+rmd_file_name <- "informe_analisis_ANTO_L_r.Rmd"
+pdf_output_path_r <- "informe_analisis_ANTO_L_r.pdf"
+chart_file_name_r <- 'cotizacion_historica_ANTO_L_r.png' # Asegurarse de que el nombre sea el mismo
+# Contenido del archivo RMarkdown
+rmd_content <- paste(
+  "---\n",
+  "title: \"Informe de Análisis de Cotización (R)\"\n",
+  "author: \"Generado en Google Colab con R\"\n",
+  "output: pdf_document\n",
+  "---\n\n",
+  "# Análisis de Rentabilidad y Riesgo\n\n",
+  "Este informe presenta un análisis de la cotización histórica de Antofagasta plc (ANTO.L) durante los últimos 5 años, con una frecuencia semanal, utilizando R. Se incluye un resumen de la rentabilidad promedio y el riesgo, así como un gráfico de la evolución de su precio de cierre.\n\n",
+  "## Resumen de Riesgo y Retorno\n\n",
+  "\`\`\`{r echo=FALSE, results='asis'}\n",
+  "  # Cargar el resumen de estadísticas generado previamente
+  resumen_stats_r <- readRDS(\"resumen_stats_r.rds\")\n",
+  "  knitr::kable(resumen_stats_r, caption = \"Resumen de Rentabilidad y Riesgo\")\n",
+  "\`\`\`\n\n",
+  "## Cotización Histórica (Últimos 5 años)\n\n",
+  "\`\`\`{r echo=FALSE, fig.align='center', out.width='80%'}\n",
+  "  knitr::include_graphics(\"cotizacion_historica_ANTO_L_r.png\")\n", # Inserta el gráfico PNG
+  "\`\`\`\n",
+  sep = ""
+)
+# Escribir el contenido en el archivo Rmd
+writeLines(rmd_content, rmd_file_name)
+# Tejer (knit) el archivo Rmd a PDF
+rmarkdown::render(rmd_file_name, output_file = pdf_output_path_r)
+print(paste('Informe PDF generado exitosamente como', pdf_output_path_r))
+# Cargar los datos guardados
+data_r <- readRDS("data_r.rds")
+chart_file_name_r <- 'cotizacion_historica_ANTO_L_r.png'
+# Generar el gráfico con ggplot2
+plot_r <- ggplot(data_r, aes(x = date, y = adjusted)) +
+  geom_line(color = "blue", size = 0.5) +
+  labs(title = paste('Cotización Semanal de', ticker, '- Últimos 5 Años'),
+       x = 'Fecha',
+       y = 'Precio (GBP)') +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) # Centrar título
+# Guardar el gráfico como PNG
+ggsave(chart_file_name_r, plot = plot_r, width = 10, height = 6, dpi = 300)
+print(paste('Gráfico guardado exitosamente como', chart_file_name_r))
+```
+# Cargar los datos guardados para el reporte
+resumen_stats_r <- readRDS("resumen_stats_r.rds")
+# Definir el nombre del archivo Rmd y el PDF de salida
+rmd_file_name <- "informe_analisis_ANTO_L_r.Rmd"
+pdf_output_path_r <- "informe_analisis_ANTO_L_r.pdf"
+chart_file_name_r <- 'cotizacion_historica_ANTO_L_r.png' # Asegurarse de que el nombre sea el mismo
+# Contenido del archivo RMarkdown
+rmd_content <- paste(
+  "---\n",
+  "title: \"Informe de Análisis de Cotización (R)\"\n",
+  "author: \"Generado en R\"\n",
+  "output: pdf_document\n",
+  "---\n\n",
+  "# Análisis de Rentabilidad y Riesgo\n\n",
+  "Este informe presenta un análisis de la cotización histórica de Antofagasta plc (ANTO.L) durante los últimos 5 años, con una frecuencia semanal, utilizando R. Se incluye un resumen de la rentabilidad promedio y el riesgo, así como un gráfico de la evolución de su precio de cierre.\n\n",
+  "## Resumen de Riesgo y Retorno\n\n",
+  "```\n",
+  "knitr::kable(resumen_stats_r, caption = \"Resumen de Rentabilidad y Riesgo\")\n",
+  "```\n\n",
+  "## Cotización Histórica (Últimos 5 años)\n\n",
+  "```{r echo=FALSE, fig.align='center', out.width='80%'}\n",
+  "  knitr::include_graphics(\"cotizacion_historica_ANTO_L_r.png\")\n", # Inserta el gráfico PNG
+  "```\n",
+  sep = ""
+)
+# Escribir el contenido en el archivo Rmd
+writeLines(rmd_content, rmd_file_name)
+# Tejer (knit) el archivo Rmd a PDF
+rmarkdown::render(rmd_file_name, output_file = pdf_output_path_r)
+print(paste('Informe PDF generado exitosamente como', pdf_output_path_r))
