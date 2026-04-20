@@ -1,0 +1,142 @@
+# --- 0. Instalación y Carga de Librerías (descomentar y ejecutar si es necesario) ---
+# install.packages("tidyquant")
+# install.packages("dplyr")
+# install.packages("ggplot2")
+# install.packages("rmarkdown")
+# install.packages("PerformanceAnalytics")
+# install.packages("tinytex") # Para la generación de PDF con rmarkdown
+# tinytex::install_tinytex() # Instalar TinyTeX si no tienes una distribución LaTeX
+
+library(tidyquant)
+library(dplyr)
+library(ggplot2)
+library(rmarkdown)
+library(PerformanceAnalytics)
+
+print("Librerías de R cargadas exitosamente.")
+
+# --- 1. Definición de la empresa y descarga de datos ---
+ticker_empresa <- "ANTO.L"
+ticker_mercado <- "^GSPC" # S&P 500 como proxy del mercado
+
+# Descargar últimos 5 años con frecuencia diaria, semanal y mensual
+# Usamos tq_get de tidyquant, que se conecta a Yahoo Finance
+data_diaria_r <- tq_get(c(ticker_empresa, ticker_mercado), from = Sys.Date() - years(5), to = Sys.Date(), periodicity = "daily")
+data_semanal_r <- tq_get(c(ticker_empresa, ticker_mercado), from = Sys.Date() - years(5), to = Sys.Date(), periodicity = "weekly")
+data_mensual_r <- tq_get(c(ticker_empresa, ticker_mercado), from = Sys.Date() - years(5), to = Sys.Date(), periodicity = "monthly")
+
+print("Datos descargados para ANTO.L y ^GSPC en frecuencias diaria, semanal y mensual.")
+
+# --- 2. Función para calcular Beta y estadísticas ---
+calculate_beta_r <- function(asset_data, market_data, frequency_name, ticker_empresa, ticker_mercado) {
+  # Asegurarse de que tenemos los precios de cierre y renombrar columnas
+  asset_prices <- asset_data %>% filter(symbol == ticker_empresa) %>% select(date, adjusted)
+  market_prices <- market_data %>% filter(symbol == ticker_mercado) %>% select(date, adjusted)
+
+  # Unir los precios por fecha
+  combined_prices <- inner_join(asset_prices, market_prices, by = "date", suffix = c(".asset", ".market"))
+
+  # Calcular retornos logarítmicos
+  returns <- combined_prices %>%
+    mutate(
+      Return.asset = log(adjusted.asset / lag(adjusted.asset)),
+      Return.market = log(adjusted.market / lag(adjusted.market))
+    ) %>% na.omit()
+
+  if (nrow(returns) < 2) {
+    message(paste("No hay suficientes datos para calcular beta para", frequency_name))
+    return(list(
+      "Rentabilidad Promedio" = NA_real_,
+      "Riesgo (Desviación Estándar)" = NA_real_,
+      "Beta" = NA_real_
+    ))
+  }
+
+  # Regresión lineal para calcular Beta
+  model <- lm(Return.asset ~ Return.market, data = returns)
+  beta <- coef(model)[["Return.market"]]
+
+  # Calcular rentabilidad promedio y riesgo
+  rentabilidad_promedio <- mean(returns$Return.asset, na.rm = TRUE)
+  riesgo_std <- sd(returns$Return.asset, na.rm = TRUE)
+
+  return(list(
+    "Rentabilidad Promedio" = rentabilidad_promedio,
+    "Riesgo (Desviación Estándar)" = riesgo_std,
+    "Beta" = beta
+  ))
+}
+
+# Calcular beta para cada frecuencia
+results_r <- list()
+
+print("\n--- Calculando Beta y Estadísticas ---")
+results_r[['Diaria']] <- calculate_beta_r(data_diaria_r, data_diaria_r, "Diaria", ticker_empresa, ticker_mercado)
+results_r[['Semanal']] <- calculate_beta_r(data_semanal_r, data_semanal_r, "Semanal", ticker_empresa, ticker_mercado)
+results_r[['Mensual']] <- calculate_beta_r(data_mensual_r, data_mensual_r, "Mensual", ticker_empresa, ticker_mercado)
+
+# Convertir resultados a un DataFrame para una mejor visualización
+df_results_r <- do.call(rbind, lapply(results_r, as.data.frame))
+row.names(df_results_r) <- names(results_r)
+
+print("\n--- Resumen de Rentabilidad, Riesgo y Beta ---")
+print(df_results_r)
+
+# Guardar df_results_r para el reporte RMarkdown
+saveRDS(df_results_r, "df_results_r.rds")
+
+
+# --- 3. Generación y guardado del gráfico (cotización semanal) ---
+# Cargar los datos guardados para el gráfico semanal
+data_r_plot <- data_semanal_r %>% filter(symbol == ticker_empresa)
+chart_file_name_r <- 'cotizacion_historica_ANTO_L_r.png'
+
+# Generar el gráfico con ggplot2
+plot_r <- ggplot(data_r_plot, aes(x = date, y = adjusted)) +
+  geom_line(color = "blue", size = 0.5) +
+  labs(title = paste('Cotización Semanal de', ticker_empresa, '- Últimos 5 Años'),
+       x = 'Fecha',
+       y = 'Precio (GBP)') +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) # Centrar título
+
+# Guardar el gráfico como PNG
+ggsave(chart_file_name_r, plot = plot_r, width = 10, height = 6, dpi = 300)
+
+print(paste('Gráfico de cotización semanal guardado exitosamente como', chart_file_name_r))
+
+# --- 4. Creación del Informe PDF con rmarkdown ---
+
+# Definir el nombre del archivo Rmd y el PDF de salida
+rmd_file_name_beta <- "informe_analisis_beta_r.Rmd"
+pdf_output_path_beta_r <- "informe_analisis_beta_r.pdf"
+
+# Contenido del archivo RMarkdown
+rmd_content_beta <- paste(
+  "---\n",
+  "title: \"Informe de Análisis de Inversión (R)\"\n",
+  "author: \"Generado con R\"\n",
+  "output: pdf_document\n",
+  "---\n\n",
+  "# Análisis de Cotización y Beta por Frecuencia\n\n",
+  "Este informe detalla el análisis de la cotización histórica de ", ticker_empresa, " y ", ticker_mercado, " (como índice de mercado) durante los últimos 5 años, calculando la rentabilidad, el riesgo y el coeficiente Beta en diferentes frecuencias (diaria, semanal y mensual). También incluye el gráfico de cotización semanal de la empresa.\n\n",
+  "## Resumen de Rentabilidad, Riesgo y Beta por Frecuencia\n\n",
+  "```{r echo=FALSE, results='asis'}\n",
+  "  # Cargar el resumen de estadísticas generado previamente\n",
+  "  df_results_r <- readRDS(\"df_results_r.rds\")\n",
+  "  knitr::kable(df_results_r, caption = \"Resumen de Rentabilidad, Riesgo y Beta\")\n",
+  "```\n\n",
+  "## Cotización Histórica Semanal (Últimos 5 años)\n\n",
+  "```{r echo=FALSE, fig.align='center', out.width='80%'}\n",
+  "  knitr::include_graphics(\"cotizacion_historica_ANTO_L_r.png\")\n", # Inserta el gráfico PNG
+  "```\n",
+  sep = ""
+)
+
+# Escribir el contenido en el archivo Rmd
+writeLines(rmd_content_beta, rmd_file_name_beta)
+
+# Tejer (knit) el archivo Rmd a PDF
+rmarkdown::render(rmd_file_name_beta, output_file = pdf_output_path_beta_r)
+
+print(paste('Informe PDF con análisis de Beta generado exitosamente como', pdf_output_path_beta_r))
